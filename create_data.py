@@ -59,10 +59,8 @@ def make_data():
         a = re.findall('data-permalink="/r/[\d|a-z|A-Z|-|_]+/comments/[\d|a-z|A-Z|-|_]+/[\d|a-z|A-Z|-|_]+/', i)
         content_list.append(f"http://old.reddit.com{a[0][16:]}")
 
-    brow.quit()
-    
-    threads = []
-    processes = []
+    brow.quit()    
+    threads = [] 
     time_a = time.perf_counter()
     for i in content_list:
         thread = threading.Thread(target=get_comment_data,args=[i])
@@ -79,9 +77,12 @@ if __name__ == "__main__":
     bs4_as = importlib.util.find_spec("bs4")
     lxml_as = importlib.util.find_spec("lxml")
     if (sel_as is not None or bs4_as is not None or lxml_as is not None):
+        print(sel_as)
+        print(bs4_as)
+        print(lxml_as)
         make_data()
     else:
-        os.system("python -m pip isntall -r requirements.txt")
+        os.system("python -m pip install -r requirements.txt")
         
         
 

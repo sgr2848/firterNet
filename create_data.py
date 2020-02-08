@@ -8,6 +8,7 @@ import random
 import threading,os,time
 # import multiprocessing
 from typing import List
+import importlib
 
 def check_reddit_class(someString):
     if re.match('class=" thing id-t3_f[\d|a-z]{5}', someString):
@@ -74,5 +75,13 @@ def make_data():
     #     get_comment_data(i)
     print(f"{time.perf_counter()-time_a} secs || {len(content_list)} ")
 if __name__ == "__main__":
+    sel_as = importlib.util.find_spec("selenium")
+    bs4_as = importlib.util.find_spec("bs4")
+    lxml_as = importlib.util.find_spec("lxml")
+    if (sel_as is not None or bs4_as is not None or lxml_as is not None):
+        make_data()
+    else:
+        os.system("python -m pip isntall -r requirements.txt")
+        
         
 

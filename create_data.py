@@ -6,15 +6,56 @@ import re
 import random
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import as_completed
-import os,time
-#import threading
-# import multiprocessing
+import os, time
+from tensorflow.keras.preprocessing.text import text_to_word_sequence, hashing_trick
+from tensorflow.keras.preprocessing.text import Tokenizer
+import pickle
 from typing import List
 import importlib
+import logging
 import numpy as np
 import pickle
+logging.basicConfig(filename="newfile.log",
+                    format='%(asctime)s %(message)s',
+                    filemode='w')
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+# create a file handler
 
+def process_text(text_to_process):
+    '''
+    this function take in a str and returns out a multidimensional array 
+    '''
+    token_list = [] 
+    tkn = Tokenizer(num_words=2)
+    for i in text_to_process:        
+        if match_words(i):            
+            logger.info(f"{i}")
+            tkn.fit_on_texts(i)
+            enoded_docs = tkn.texts_to_matrix(i, mode='count')
+            token_list.append([enoded_docs, [1]])
+        else:            
+            tkn.fit_on_texts(i)
+            enoded_docs = tkn.texts_to_matrix(i, mode='count')
+            token_list.append([enoded_docs, [0]])
+    return token_list
+def match_words(input_string: str) -> bool:
+    '''
+    function that return true if those words appears in the input string
+    '''
+    return_val = False
+    string_list = text_to_word_sequence(input_string)
+    for i in string_list:
+        if re.match("(fuck)+|(cunt)+|(suck a dick)+",i):
+            return_val = True
+        else:
+            pass
+    return return_val
+   
 def check_reddit_class(someString):
+    '''
+    not needed | will delete in refactoring
+    '''                
     if re.match('class=" thing id-t3_f[\d|a-z]{5}', someString):
         # print("{} matched".format(someString))
         return True
@@ -23,7 +64,8 @@ def check_reddit_class(someString):
         # print(".",end="---")
         return False
 
-def get_comment_data(url) :
+def get_comment_data(url:str) -> List:
+    
 
     res = requests.get(url,  headers={'User-agent': 'No a bot I swear'})
     if res.status_code == 200:
@@ -32,13 +74,19 @@ def get_comment_data(url) :
         a = re.findall('form-t1_[\d|a-z]{10}', str(b_soup))
         # print(f"{url[20:]} has {len(a)} comments")
         word_matrix = []
+        new_matrix = []
         for i in a:
             current_comment = b_soup.select('form', {'id': i})
             for para in current_comment:
                 for i in para.findAll('p'):
                     # print(".",end="|")
                     word_matrix.append(i.text)
-        return word_matrix
+                
+            with ThreadPoolExecutor(max_workers=5) as exe:
+                futures = [exe.submit(process_text, text) for text in word_matrix]
+                for future in as_completed(futures):
+                    new_matrix.append(future.result()) 
+        return new_matrix
 
     else:
         print(res.text)
@@ -88,25 +136,34 @@ def make_data():
     with ThreadPoolExecutor(max_workers=10) as exe:
         futures = [exe.submit(get_comment_data, url) for url in content_list]
         for future in as_completed(futures):
-            print("***DONZOO***", end="_|_")
-            print(time.perf_counter()-time_a)
+            # print("***DONZOO***", end="_|_")
+            print(time.perf_counter()-time_a,end = ",")
             time_list.append(time.perf_counter()-time_a)
             comment_list.append(future.result())
 
-    with open("data.txt", "a", encoding="utf-8") as data_file:
+    with open("data.pkl", "rb", encoding="utf-8") as data_file:
         for i in comment_list:
-            data_file.write(str(i))
+            pickle.dump(i,data_file)
     print(f"{(time.perf_counter()-time_a)/60} mins || {len (content_list)}")
+
 if __name__ == "__main__":
     sel_as = importlib.util.find_spec("selenium")
     bs4_as = importlib.util.find_spec("bs4")
     lxml_as = importlib.util.find_spec("lxml")
     if (sel_as is not None or bs4_as is not None or lxml_as is not None):
-        print(sel_as)
-        print(bs4_as)
-        print(lxml_as)
+        a = ["GO fuck yourself", "just spent some time with them in SOHO",
+             "Walk out and gather stuff", "would you stop being a cunt", "it is fucking useless that you"]
+        # print(sel_as)
+        # print(bs4_as)
+        # print(lxml_as)
         # get_comment_data("https://old.reddit.com/r/worldnews/comments/f0v18s/buried_in_trumps_peace_plan_a_proposal_that_could/")
         make_data()
+        # ar = process_text(a)
+        # logger.info(f" the len is --->{len(ar)}")
+        # for i in ar:
+        #     print(np.shape((i)[0]))      
+        
+        
     else:
         os.system("python -m pip install -r requirements.txt")
         

@@ -5,8 +5,10 @@ from selenium.webdriver import Firefox
 import re
 import random
 from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures import as_completed
 import os, time
+import tensorflow as tf
 from tensorflow.keras.preprocessing.text import text_to_word_sequence, hashing_trick
 from tensorflow.keras.preprocessing.text import Tokenizer
 import pickle
@@ -21,24 +23,27 @@ logging.basicConfig(filename="newfile.log",
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 # create a file handler
+########dont run...... code is a memory hog at the moment will change how this function
 
 def process_text(text_to_process):
     '''
     this function take in a str and returns out a multidimensional array 
     '''
     token_list = [] 
-    tkn = Tokenizer(num_words=2)
-    for i in text_to_process:        
-        if match_words(i):            
-            logger.info(f"{i}")
-            tkn.fit_on_texts(i)
-            enoded_docs = tkn.texts_to_matrix(i, mode='count')
-            token_list.append([enoded_docs, [1]])
-        else:            
-            tkn.fit_on_texts(i)
-            enoded_docs = tkn.texts_to_matrix(i, mode='count')
-            token_list.append([enoded_docs, [0]])
-    return token_list
+
+    with tf.device(':/device:GPU:0'):
+        tkn = Tokenizer(num_words=2)
+        for i in text_to_process:        
+            if match_words(i):            
+                logger.info(f"{i}")
+                tkn.fit_on_texts(i)
+                enoded_docs = tkn.texts_to_matrix(i, mode='count')
+                token_list.append([enoded_docs, [1]])
+            else:            
+                tkn.fit_on_texts(i)
+                enoded_docs = tkn.texts_to_matrix(i, mode='count')
+                token_list.append([enoded_docs, [0]])
+        return token_list
 def match_words(input_string: str) -> bool:
     '''
     function that return true if those words appears in the input string
@@ -82,7 +87,7 @@ def get_comment_data(url:str) -> List:
                     # print(".",end="|")
                     word_matrix.append(i.text)
                 
-            with ThreadPoolExecutor(max_workers=5) as exe:
+            with ProcessPoolExecutor(max_workers=2) as exe:
                 futures = [exe.submit(process_text, text) for text in word_matrix]
                 for future in as_completed(futures):
                     new_matrix.append(future.result()) 
@@ -133,8 +138,8 @@ def make_data():
     #     get_comment_data(i)
     comment_list = []
     time_list = []
-    with ThreadPoolExecutor(max_workers=10) as exe:
-        futures = [exe.submit(get_comment_data, url) for url in content_list]
+    with ThreadPoolExecutor(max_workers=1) as exe:
+        futures = [exe.submit(get_comment_data, url) for url in content_list[0:1]]
         for future in as_completed(futures):
             # print("***DONZOO***", end="_|_")
             print(time.perf_counter()-time_a,end = ",")

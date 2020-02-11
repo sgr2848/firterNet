@@ -1,13 +1,15 @@
 from selenium.webdriver.firefox.options import Options
 import bs4 as bs
-import requests, lxml
+import  lxml
 from selenium.webdriver import Firefox
-import re
+import re, sys, time, requests
+from time import perf_counter
+from os import system
+# import resource #for linux
 import random
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures import as_completed
-import os, time
 import tensorflow as tf
 from tensorflow.keras.preprocessing.text import text_to_word_sequence, hashing_trick
 from tensorflow.keras.preprocessing.text import Tokenizer
@@ -24,6 +26,10 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 # create a file handler
 ########dont run...... code is a memory hog at the moment will change how this function
+#for linux 
+# def limit_memory(size):
+#     soft, hard = resource.getrlimit(resource.RLIMIT_AS)
+#     resource.setrlimit(resource.RLIMIT_AS,(size,hard))
 
 def process_text(text_to_process):
     '''
@@ -126,7 +132,7 @@ def make_data():
         content_list.append(f"http://old.reddit.com{a[0][16:]}")
     brow.quit()    
     threads = [] 
-    time_a = time.perf_counter()
+    time_a = perf_counter()
     # for i in content_list:
     #     thread = threading.Thread(target=get_comment_data,args=[i])
     #     thread.start()
@@ -149,28 +155,33 @@ def make_data():
     with open("data.pkl", "rb", encoding="utf-8") as data_file:
         for i in comment_list:
             pickle.dump(i,data_file)
-    print(f"{(time.perf_counter()-time_a)/60} mins || {len (content_list)}")
+    print(f"{(perf_counter()-time_a)/60} mins || {len (content_list)}")
 
 if __name__ == "__main__":
-    sel_as = importlib.util.find_spec("selenium")
-    bs4_as = importlib.util.find_spec("bs4")
-    lxml_as = importlib.util.find_spec("lxml")
-    if (sel_as is not None or bs4_as is not None or lxml_as is not None):
-        a = ["GO fuck yourself", "just spent some time with them in SOHO",
-             "Walk out and gather stuff", "would you stop being a cunt", "it is fucking useless that you"]
-        # print(sel_as)
-        # print(bs4_as)
-        # print(lxml_as)
-        # get_comment_data("https://old.reddit.com/r/worldnews/comments/f0v18s/buried_in_trumps_peace_plan_a_proposal_that_could/")
-        make_data()
-        # ar = process_text(a)
-        # logger.info(f" the len is --->{len(ar)}")
-        # for i in ar:
-        #     print(np.shape((i)[0]))      
+    # limit_memory(1512) # linux limit mem
+    try:
+        sel_as = importlib.util.find_spec("selenium")
+        bs4_as = importlib.util.find_spec("bs4")
+        lxml_as = importlib.util.find_spec("lxml")
         
-        
-    else:
-        os.system("python -m pip install -r requirements.txt")
-        
+        if (sel_as is not None or bs4_as is not None or lxml_as is not None):
+            a = ["GO fuck yourself", "just spent some time with them in SOHO",
+                "Walk out and gather stuff", "would you stop being a cunt", "it is fucking useless that you"]
+            # print(sel_as)
+            # print(bs4_as)
+            # print(lxml_as)
+            # get_comment_data("https://old.reddit.com/r/worldnews/comments/f0v18s/buried_in_trumps_peace_plan_a_proposal_that_could/")
+            make_data()
+            # ar = process_text(a)
+            # logger.info(f" the len is --->{len(ar)}")
+            # for i in ar:
+            #     print(np.shape((i)[0]))      
+            
+            
+        else:
+            system("python -m pip install -r requirements.txt")
+    except MemoryError:
+        sys.stderr.write('\n\nERROR: Memory Exception\n')
+        sys.exit(1)
         
 

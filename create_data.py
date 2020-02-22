@@ -2,28 +2,31 @@ from selenium.webdriver.firefox.options import Options
 import bs4 as bs
 import  lxml
 from selenium.webdriver import Firefox
-import re, sys, time, requests
+import re
+import sys
+import time
+import gc
+import requests
+from random import randint
 from time import perf_counter
 from os import system
 # import resource #for linux
-import random
-from concurrent.futures import ThreadPoolExecutor
-from concurrent.futures import ProcessPoolExecutor
-from concurrent.futures import as_completed
+from concurrent.futures import ThreadPoolExecutor,ProcessPoolExecutor,as_completed
 import tensorflow as tf
-from tensorflow.keras.preprocessing.text import text_to_word_sequence, hashing_trick
-from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.text import text_to_word_sequence, hashing_trick, Tokenizer
 import pickle
 from typing import List
 import importlib
 import logging
+from collections import deque
 import numpy as np
-import pickle
-logging.basicConfig(filename="newfile.log",
-                    format='%(asctime)s %(message)s',
-                    filemode='w')
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.INFO)
+handler = logging.FileHandler("sameNoe.log", "w", "utf-8")
+handler.setFormatter(logging.Formatter('%(name)s %(message)'))
+root_logger.addHandler(handler)
+
 # create a file handler
 ########dont run...... code is a memory hog at the moment will change how this function
 #for linux 
@@ -35,21 +38,34 @@ def process_text(text_to_process):
     '''
     this function take in a str and returns out a multidimensional array 
     '''
-    token_list = [] 
 
+    token_list = []
+    de = deque(text_to_process.split(" "))
+    del text_to_process
+    
     with tf.device(':/device:GPU:0'):
         tkn = Tokenizer(num_words=2)
-        for i in text_to_process:        
-            if match_words(i):            
-                logger.info(f"{i}")
-                tkn.fit_on_texts(i)
-                enoded_docs = tkn.texts_to_matrix(i, mode='count')
+        while len(de) != 0:            
+            if match_words(de[0]):
+                    # somefile.write(de[0])      
+                # root_logger.info(f"{de[0]}")
+                tkn.fit_on_texts(de[0])
+                enoded_docs = tkn.texts_to_matrix(de[0], mode='count')
                 token_list.append([enoded_docs, [1]])
-            else:            
-                tkn.fit_on_texts(i)
-                enoded_docs = tkn.texts_to_matrix(i, mode='count')
+                de.popleft()
+            else:
+                    # somefile.write(de[0])
+                    # print(de[0])   
+                # root_logger.info(f"{de[0]}")
+                tkn.fit_on_texts(de[0])
+                enoded_docs = tkn.texts_to_matrix(de[0], mode='count')
                 token_list.append([enoded_docs, [0]])
-        return token_list
+                
+                de.popleft()
+    
+
+    return token_list
+    
 def match_words(input_string: str) -> bool:
     '''
     function that return true if those words appears in the input string
@@ -67,7 +83,7 @@ def check_reddit_class(someString):
     '''
     not needed | will delete in refactoring
     '''                
-    if re.match('class=" thing id-t3_f[\d|a-z]{5}', someString):
+    if re.match('class=" thing id-t3_f[\d|a-z]{5} even', someString) or re.match('class=" thing id-t3_f[\d|a-z]{5} odd', someString):
         # print("{} matched".format(someString))
         return True
     else:
@@ -75,7 +91,7 @@ def check_reddit_class(someString):
         # print(".",end="---")
         return False
 
-def get_comment_data(url:str) -> List:
+def get_comment_data(url:str):
     
 
     res = requests.get(url,  headers={'User-agent': 'No a bot I swear'})
@@ -87,22 +103,29 @@ def get_comment_data(url:str) -> List:
         word_matrix = []
         new_matrix = []
         for i in a:
+            
             current_comment = b_soup.select('form', {'id': i})
             for para in current_comment:
-                for i in para.findAll('p'):
+                for k in para.findAll('p'):
                     # print(".",end="|")
-                    word_matrix.append(i.text)
-                
+                    word_matrix.append(k.text)
+            # print(word_matrix)
             with ProcessPoolExecutor(max_workers=2) as exe:
-                futures = [exe.submit(process_text, text) for text in word_matrix]
+                futures = [exe.submit(process_text, word) for word in word_matrix]
                 for future in as_completed(futures):
-                    new_matrix.append(future.result()) 
-        return new_matrix
+                    # print(f"{np.array(future.result()).shape} the shape is  \n \n")
+                    new_matrix.append(future.result())
+                    astitwa = np.array(new_matrix).shape
+                    print(f"{astitwa} the shape of the total list")
+                    del astitwa
+
+        # del new_matrix                      
+                
 
     else:
         print(res.text)
         print(f"couldn't get in for some unknown reason : {res.status_code} ")
-        return ["couldn't grab shit"]
+      
 def make_data():
     """
         the main function I guess goes to reddit gets the top 25 post and collects the first page comment of the the page and give you a pickled file....
@@ -116,45 +139,35 @@ def make_data():
     brow.get("https://old.reddit.com/")  # think there might be a function that is much better solution than sleeping but oh welllllll
     table = brow.find_element_by_xpath("//div[@id='siteTable']").get_attribute("innerHTML")    
     alist = re.split("<div | div>",table)
-    
+    print(f"{len(alist)}")
     feed_list = []
     for i in alist:
         if len(i) > 30:
-            if check_reddit_class(i[0:26]):
+            if check_reddit_class(i[0:34]):
+                print(i[0:34])
                 feed_list.append(i)
             else:
                 pass
         else:
             pass
     content_list =[]
+    print(f"{len(content_list)}")
     for i in feed_list:
-        a = re.findall('data-permalink="/r/[\d|a-z|A-Z|-|_]+/comments/[\d|a-z|A-Z|-|_]+/[\d|a-z|A-Z|-|_]+/', i)
-        content_list.append(f"http://old.reddit.com{a[0][16:]}")
+        a = re.findall('/r/[\d|a-z|A-Z|-|_]+/comments/[\d|a-z|A-Z|-|_]+/[\d|a-z|A-Z|-|_]+/', i)
+        # print(a[0])
+        content_list.append(f"http://old.reddit.com{a[0]}")
+    # print(content_list)
     brow.quit()    
-    threads = [] 
     time_a = perf_counter()
-    # for i in content_list:
-    #     thread = threading.Thread(target=get_comment_data,args=[i])
-    #     thread.start()
-    #     threads.append(thread)
-    # for thread in threads:
-    #      thread.join()
-    #syncro took 36 secs || threading is more efficient way
-    # for i in content_list:
-    #     get_comment_data(i)
-    comment_list = []
-    time_list = []
+
+    # time_list = []
     with ThreadPoolExecutor(max_workers=1) as exe:
         futures = [exe.submit(get_comment_data, url) for url in content_list[0:1]]
         for future in as_completed(futures):
-            # print("***DONZOO***", end="_|_")
-            print(time.perf_counter()-time_a,end = ",")
-            time_list.append(time.perf_counter()-time_a)
-            comment_list.append(future.result())
+            pass
 
-    with open("data.pkl", "rb", encoding="utf-8") as data_file:
-        for i in comment_list:
-            pickle.dump(i,data_file)
+
+
     print(f"{(perf_counter()-time_a)/60} mins || {len (content_list)}")
 
 if __name__ == "__main__":
@@ -176,7 +189,7 @@ if __name__ == "__main__":
             # logger.info(f" the len is --->{len(ar)}")
             # for i in ar:
             #     print(np.shape((i)[0]))      
-            
+            # print(check_reddit_class('class=" thing id-t3_f3zad0 even link'))
             
         else:
             system("python -m pip install -r requirements.txt")

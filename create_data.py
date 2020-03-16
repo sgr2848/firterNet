@@ -181,18 +181,8 @@ if __name__ == "__main__":
         lxml_as = importlib.util.find_spec("lxml")
         
         if (sel_as is not None or bs4_as is not None or lxml_as is not None):
-            a = ["GO fuck yourself", "just spent some time with them in SOHO",
-                "Walk out and gather stuff", "would you stop being a cunt", "it is fucking useless that you"]
-            # print(sel_as)
-            # print(bs4_as)
-            # print(lxml_as)
-            # get_comment_data("https://old.reddit.com/r/worldnews/comments/f0v18s/buried_in_trumps_peace_plan_a_proposal_that_could/")
+           
             make_data()
-            # ar = process_text(a)
-            # logger.info(f" the len is --->{len(ar)}")
-            # for i in ar:
-            #     print(np.shape((i)[0]))      
-            # print(check_reddit_class('class=" thing id-t3_f3zad0 even link'))
             
         else:
             system("python -m pip install -r requirements.txt")

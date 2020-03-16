@@ -115,11 +115,14 @@ def get_comment_data(url:str):
                 for future in as_completed(futures):
                     # print(f"{np.array(future.result()).shape} the shape is  \n \n")
                     new_matrix.append(future.result())
-                    astitwa = np.array(new_matrix).shape
-                    print(f"{astitwa} the shape of the total list")
-                    del astitwa
-
-        # del new_matrix                      
+                    astitwa = len(new_matrix)
+                    print(astitwa)    
+                    if astitwa == 1500:
+                        a = randint(0,200)              
+                        with open(f"file{a}.pkl", 'wb') as pick_file:
+                            pickle.dump(new_matrix, pick_file)
+                        new_matrix = []
+        del new_matrix                      
                 
 
     else:
@@ -132,8 +135,8 @@ def make_data():
     """
     
     op = Options()
-    op.headless = True
-    brow = Firefox(executable_path = 'geckodriver.exe',options = op)
+    # op.headless = True
+    brow = Firefox(executable_path = 'geckodriver.exe',options= op)
 
     brow.set_page_load_timeout('10')
     brow.get("https://old.reddit.com/")  # think there might be a function that is much better solution than sleeping but oh welllllll
